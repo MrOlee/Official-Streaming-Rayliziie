@@ -1,23 +1,258 @@
-const CACHE = 'rayliziie-v3';
-const ASSETS = ['/', '/index.html', '/manifest.json'];
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Rayliziie Debug</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      background: #0b0b12;
+      color: #f0f0f5;
+      font-family: 'Inter', sans-serif;
+      padding: 16px;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+    .debug-box {
+      background: #16161f;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      overflow-x: auto;
+    }
+    .debug-box h3 {
+      color: #e50914;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+    .debug-box pre {
+      font-size: 11px;
+      color: #9a9ab0;
+      white-space: pre-wrap;
+      word-break: break-all;
+      font-family: monospace;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .debug-box .field-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .debug-box .field-tag {
+      background: rgba(229, 9, 20, 0.12);
+      color: #e50914;
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .card {
+      background: #16161f;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+    }
+    .card img {
+      width: 100%;
+      aspect-ratio: 2/3;
+      object-fit: cover;
+      background: #0b0b12;
+    }
+    .card-info {
+      padding: 12px 14px;
+    }
+    .card-info .title {
+      font-weight: 700;
+      font-size: 15px;
+    }
+    .card-info .fields {
+      font-size: 11px;
+      color: #9a9ab0;
+      margin-top: 4px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .card-info .fields span {
+      background: rgba(255, 255, 255, 0.04);
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+    .loader {
+      text-align: center;
+      padding: 40px 0;
+      color: #9a9ab0;
+    }
+    .spinner {
+      display: inline-block;
+      width: 32px;
+      height: 32px;
+      border: 3px solid rgba(229, 9, 20, 0.15);
+      border-top-color: #e50914;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+    .error {
+      color: #ff6b6b;
+      background: rgba(255, 0, 0, 0.06);
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 0, 0, 0.1);
+    }
+    h2 {
+      margin: 20px 0 12px;
+      font-size: 18px;
+    }
+  </style>
+</head>
+<body>
 
-self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
-  self.skipWaiting();
-});
+  <h1 style="font-size:22px;margin-bottom:4px;">▶ Rayliziie <span style="color:#e50914;font-size:12px;background:rgba(229,9,20,0.12);padding:2px 10px;border-radius:20px;">DEBUG</span></h1>
+  <p style="color:#9a9ab0;font-size:13px;margin-bottom:20px;">Lihat struktur response API di bawah</p>
 
-self.addEventListener('activate', e => {
-  e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-    )
-  );
-  self.clients.claim();
-});
+  <div id="app">
+    <div class="loader">
+      <div class="spinner"></div>
+      <p style="margin-top:12px;">Memuat data dari API...</p>
+    </div>
+  </div>
 
-self.addEventListener('fetch', e => {
-  e.respondWith(
-    caches.match(e.request).then(res => res || fetch(e.request))
-      .catch(() => new Response('Offline', { status: 503 }))
-  );
-});
+  <script>
+    // ================================================================
+    // DEBUG VERSION - SHOW RAW API RESPONSE
+    // ================================================================
+
+    const API = 'https://api-rayliziie.rayyankrens0304.workers.dev';
+    const app = document.getElementById('app');
+
+    async function debugAPI() {
+      try {
+        // Try multiple endpoints
+        const endpoints = [
+          { name: 'Anime (list)', path: '/animekompi/list', method: 'GET' },
+          { name: 'Anime (home)', path: '/animekompi/home', method: 'GET' },
+          { name: 'Drama (list POST)', path: '/dramovnime/list', method: 'POST', body: { page: 1, limit: 10 } },
+          { name: 'Film (home)', path: '/filmbox/home', method: 'GET' },
+          { name: 'TV (channels)', path: '/vidio/channels', method: 'GET' },
+          { name: 'Schedule', path: '/animekompi/schedule', method: 'GET' },
+          { name: 'Root Info', path: '/', method: 'GET' },
+        ];
+
+        let html = '';
+
+        for (const ep of endpoints) {
+          try {
+            const opts = {
+              method: ep.method,
+              headers: { 'Content-Type': 'application/json' },
+            };
+            if (ep.body) opts.body = JSON.stringify(ep.body);
+
+            const res = await fetch(`${API}${ep.path}`, opts);
+            const status = res.status;
+            const data = await res.json();
+
+            html += `
+              <div class="debug-box">
+                <h3>${ep.name} — <span style="color:${status === 200 ? '#00ff88' : '#ff6b6b'}">${status}</span></h3>
+                <div style="font-size:11px;color:#9a9ab0;margin-bottom:6px;">
+                  ${ep.method} ${ep.path}
+                </div>
+                <div class="field-list">
+                  ${Object.keys(data).map(k => `<span class="field-tag">${k}</span>`).join('')}
+                </div>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+              </div>
+            `;
+
+            // Try to detect array and show first item fields
+            const items = detectItems(data);
+            if (items && items.length > 0) {
+              const firstItem = items[0];
+              html += `
+                <div class="debug-box" style="border-color:rgba(0,255,136,0.2);">
+                  <h3 style="color:#00ff88;">✅ First Item Fields (${items.length} items)</h3>
+                  <div class="field-list">
+                    ${Object.keys(firstItem).map(k => `<span class="field-tag">${k}: ${typeof firstItem[k]}</span>`).join('')}
+                  </div>
+                  <pre>${JSON.stringify(firstItem, null, 2)}</pre>
+                </div>
+              `;
+
+              // Show cards with actual data
+              html += `<h2>📺 Preview (${items.length} items)</h2>`;
+              items.slice(0, 6).forEach((item, idx) => {
+                const title = item.title || item.name || item.judul || Object.values(item)[0] || 'No Title';
+                const img = item.poster || item.thumbnail || item.image || item.cover || item.img || '';
+                const allFields = Object.keys(item).join(' | ');
+                html += `
+                  <div class="card">
+                    <img src="${img}" alt="${title}" onerror="this.src='https://via.placeholder.com/200x300/16161f/9a9ab0?text=No+Image'" />
+                    <div class="card-info">
+                      <div class="title">${title}</div>
+                      <div class="fields">
+                        <span>Fields: ${allFields}</span>
+                      </div>
+                    </div>
+                  </div>
+                `;
+              });
+            }
+
+          } catch (err) {
+            html += `
+              <div class="debug-box" style="border-color:#ff6b6b;">
+                <h3 style="color:#ff6b6b;">❌ ${ep.name} — Error</h3>
+                <pre style="color:#ff6b6b;">${err.message}</pre>
+              </div>
+            `;
+          }
+        }
+
+        app.innerHTML = html;
+
+      } catch (err) {
+        app.innerHTML = `<div class="error">❌ Error: ${err.message}</div>`;
+      }
+    }
+
+    // ---- Helper detect items ----
+    function detectItems(data) {
+      if (!data) return [];
+      if (Array.isArray(data)) return data;
+      const keys = ['data', 'items', 'results', 'list', 'channels', 'anime', 'movies', 'dramas', 'shows', 'contents'];
+      for (const k of keys) {
+        if (data[k] && Array.isArray(data[k]) && data[k].length > 0) {
+          return data[k];
+        }
+      }
+      // Cari array apapun
+      for (const k in data) {
+        if (Array.isArray(data[k]) && data[k].length > 0) {
+          return data[k];
+        }
+      }
+      return [];
+    }
+
+    // ---- RUN ----
+    debugAPI();
+  </script>
+
+</body>
+</html>
